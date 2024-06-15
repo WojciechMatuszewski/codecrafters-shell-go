@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -14,7 +14,7 @@ import (
 var builtins = map[string]Cmd{
 	"exit": ExitCmd{},
 	"echo": EchoCmd{writer: os.Stdout},
-	"type": TypeCmd{writer: os.Stdout, execGlobFS: ExecGlobFS{}},
+	"type": TypeCmd{writer: os.Stdout, pathLooker: exec.LookPath},
 }
 
 func main() {
@@ -78,7 +78,7 @@ func (ec EchoCmd) Run(args []string) {
 
 type TypeCmd struct {
 	writer     io.Writer
-	execGlobFS fs.GlobFS
+	pathLooker func(string) (string, error)
 }
 
 func (tc TypeCmd) Run(args []string) {
@@ -93,47 +93,29 @@ func (tc TypeCmd) Run(args []string) {
 		return
 	}
 
-	matches, err := tc.execGlobFS.Glob(cmd)
+	execPath, err := tc.pathLooker(cmd)
 	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			fmt.Fprintf(tc.writer, "%s: not found\n", cmd)
+			return
+		}
+
 		panic(err)
 	}
 
-	if len(matches) == 0 {
-		fmt.Fprintf(tc.writer, "%s: not found\n", cmd)
-		return
-	}
-
-	fmt.Fprintf(tc.writer, "%s is %s\n", cmd, matches[0])
+	fmt.Fprintf(tc.writer, "%s is %s\n", cmd, execPath)
 }
 
-type ExecGlobFS struct {
-	fs.FS
+type Executor struct {
+	writer     io.Writer
+	pathLooker func(string) (string, error)
 }
 
-func (eg ExecGlobFS) Glob(cmd string) ([]string, error) {
-	p, found := os.LookupEnv("PATH")
-	if !found {
-		return []string{}, errors.New("PATH environment variable not found")
-	}
+func (ex Executor) Run(program string, args []string) {
+	// matches, err := ex.execGlobFS.Glob(program)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	paths := strings.Split(p, ":")
-	for _, path := range paths {
-		fsys := os.DirFS(path)
-
-		matches, err := fs.Glob(fsys, cmd)
-		if err != nil {
-			return []string{}, err
-		}
-
-		if len(matches) > 1 {
-			panic(errors.New("found multiple executables"))
-		}
-
-		if len(matches) > 0 {
-			match := fmt.Sprintf("%s/%s", path, matches[0])
-			return []string{match}, nil
-		}
-	}
-
-	return []string{}, nil
+	// cmd := exec.LookPath()
 }
