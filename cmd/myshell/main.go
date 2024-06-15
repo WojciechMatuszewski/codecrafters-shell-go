@@ -5,16 +5,31 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"strconv"
 	"strings"
 )
 
 func main() {
-	commands := map[string]Cmd{
+	builtin := map[string]Cmd{
 		"exit": ExitCmd{},
 		"echo": EchoCmd{writer: os.Stdout},
 	}
+
+	meta := map[string]Cmd{
+		"type": TypeCmd{
+			writer: os.Stdout,
+			cmdExists: func(s string) bool {
+				_, found := builtin[s]
+				return found
+			},
+		},
+	}
+
+	commands := make(map[string]Cmd)
+	maps.Copy(commands, builtin)
+	maps.Copy(commands, meta)
 
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
@@ -72,4 +87,28 @@ func (ec EchoCmd) Run(args []string) {
 	}
 
 	fmt.Fprintf(ec.writer, "%s\n", strings.Join(args, ""))
+}
+
+type TypeCmd struct {
+	writer    io.Writer
+	cmdExists func(string) bool
+}
+
+func (tc TypeCmd) Run(args []string) {
+	if len(args) != 1 {
+		panic(errors.New("invalid length of parameters"))
+	}
+
+	cmd := args[0]
+	if cmd == "type" {
+		fmt.Fprintf(tc.writer, "%s is a shell builtin\n", cmd)
+		return
+	}
+
+	if tc.cmdExists(cmd) {
+		fmt.Fprintf(tc.writer, "%s is a shell builtin\n", cmd)
+		return
+	}
+
+	fmt.Fprintf(tc.writer, "%s: not found \n", args[0])
 }
