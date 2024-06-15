@@ -5,37 +5,24 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
+	"io/fs"
 	"os"
 	"strconv"
 	"strings"
 )
 
+var builtins = map[string]Cmd{
+	"exit": ExitCmd{},
+	"echo": EchoCmd{writer: os.Stdout},
+	"type": TypeCmd{writer: os.Stdout, execGlobFS: ExecGlobFS{}},
+}
+
 func main() {
-	builtin := map[string]Cmd{
-		"exit": ExitCmd{},
-		"echo": EchoCmd{writer: os.Stdout},
-	}
-
-	meta := map[string]Cmd{
-		"type": TypeCmd{
-			writer: os.Stdout,
-			cmdExists: func(s string) bool {
-				_, found := builtin[s]
-				return found
-			},
-		},
-	}
-
-	commands := make(map[string]Cmd)
-	maps.Copy(commands, builtin)
-	maps.Copy(commands, meta)
-
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
 
 		cmd, args := parseLine(os.Stdin)
-		toRun, found := commands[cmd]
+		toRun, found := builtins[cmd]
 		if !found {
 			fmt.Fprintf(os.Stdout, "%s: command not found\n", strings.TrimSuffix(cmd, "\n"))
 		} else {
@@ -90,25 +77,62 @@ func (ec EchoCmd) Run(args []string) {
 }
 
 type TypeCmd struct {
-	writer    io.Writer
-	cmdExists func(string) bool
+	writer     io.Writer
+	execGlobFS fs.GlobFS
 }
 
 func (tc TypeCmd) Run(args []string) {
 	if len(args) != 1 {
 		panic(errors.New("invalid length of parameters"))
 	}
-
 	cmd := args[0]
-	if cmd == "type" {
+
+	_, exists := builtins[cmd]
+	if exists {
 		fmt.Fprintf(tc.writer, "%s is a shell builtin\n", cmd)
 		return
 	}
 
-	if tc.cmdExists(cmd) {
-		fmt.Fprintf(tc.writer, "%s is a shell builtin\n", cmd)
-		return
+	matches, err := tc.execGlobFS.Glob(cmd)
+	if err != nil {
+		panic(err)
 	}
 
-	fmt.Fprintf(tc.writer, "%s: not found\n", args[0])
+	if len(matches) == 0 {
+		fmt.Fprintf(tc.writer, "%s: not found", cmd)
+	}
+
+	fmt.Fprintf(tc.writer, "%s is %s\n", cmd, matches[0])
+}
+
+type ExecGlobFS struct {
+	fs.FS
+}
+
+func (eg ExecGlobFS) Glob(cmd string) ([]string, error) {
+	p, found := os.LookupEnv("PATH")
+	if !found {
+		return []string{}, errors.New("PATH environment variable not found")
+	}
+
+	paths := strings.Split(p, ":")
+	for _, path := range paths {
+		fsys := os.DirFS(path)
+
+		matches, err := fs.Glob(fsys, cmd)
+		if err != nil {
+			return []string{}, err
+		}
+
+		if len(matches) > 1 {
+			panic(errors.New("found multiple executables"))
+		}
+
+		if len(matches) > 0 {
+			match := fmt.Sprintf("%s/%s", path, matches[0])
+			return []string{match}, nil
+		}
+	}
+
+	return []string{}, nil
 }
