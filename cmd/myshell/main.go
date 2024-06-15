@@ -99,7 +99,8 @@ func (tc TypeCmd) Run(args []string) {
 	}
 
 	if len(matches) == 0 {
-		fmt.Fprintf(tc.writer, "%s: not found", cmd)
+		fmt.Fprintf(tc.writer, "%s: not found\n", cmd)
+		return
 	}
 
 	fmt.Fprintf(tc.writer, "%s is %s\n", cmd, matches[0])
