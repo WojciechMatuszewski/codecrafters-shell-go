@@ -11,22 +11,29 @@ import (
 	"strings"
 )
 
-var builtins = map[string]Cmd{
+var builtins = map[string]BuiltinCmd{
 	"exit": ExitCmd{},
-	"echo": EchoCmd{writer: os.Stdout},
-	"type": TypeCmd{writer: os.Stdout, pathLooker: exec.LookPath},
+	"echo": EchoCmd{stdout: os.Stdout},
+	"type": TypeCmd{stdout: os.Stdout, pathLooker: exec.LookPath},
 }
 
 func main() {
+	executor := Executor{
+		stdin:      os.Stdin,
+		stdout:     os.Stdout,
+		stderr:     os.Stderr,
+		pathLooker: exec.LookPath,
+	}
+
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
 
 		cmd, args := parseLine(os.Stdin)
-		toRun, found := builtins[cmd]
-		if !found {
-			fmt.Fprintf(os.Stdout, "%s: command not found\n", strings.TrimSuffix(cmd, "\n"))
+		builtin, foundBuiltIn := builtins[cmd]
+		if !foundBuiltIn {
+			executor.Run(cmd, args)
 		} else {
-			toRun.Run(args)
+			builtin.Run(args)
 		}
 
 	}
@@ -43,7 +50,7 @@ func parseLine(reader io.Reader) (string, []string) {
 	return strings.TrimSuffix(cmd[0], " "), cmd[1:]
 }
 
-type Cmd interface {
+type BuiltinCmd interface {
 	Run([]string)
 }
 
@@ -64,20 +71,20 @@ func (ec ExitCmd) Run(args []string) {
 }
 
 type EchoCmd struct {
-	writer io.Writer
+	stdout io.Writer
 }
 
 func (ec EchoCmd) Run(args []string) {
 	if len(args) == 0 {
-		fmt.Fprint(ec.writer, "\n")
+		fmt.Fprint(ec.stdout, "\n")
 		return
 	}
 
-	fmt.Fprintf(ec.writer, "%s\n", strings.Join(args, ""))
+	fmt.Fprintf(ec.stdout, "%s\n", strings.Join(args, ""))
 }
 
 type TypeCmd struct {
-	writer     io.Writer
+	stdout     io.Writer
 	pathLooker func(string) (string, error)
 }
 
@@ -89,33 +96,51 @@ func (tc TypeCmd) Run(args []string) {
 
 	_, exists := builtins[cmd]
 	if exists {
-		fmt.Fprintf(tc.writer, "%s is a shell builtin\n", cmd)
+		fmt.Fprintf(tc.stdout, "%s is a shell builtin\n", cmd)
 		return
 	}
 
 	execPath, err := tc.pathLooker(cmd)
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			fmt.Fprintf(tc.writer, "%s: not found\n", cmd)
+			fmt.Fprintf(tc.stdout, "%s: not found\n", cmd)
 			return
 		}
 
 		panic(err)
 	}
 
-	fmt.Fprintf(tc.writer, "%s is %s\n", cmd, execPath)
+	fmt.Fprintf(tc.stdout, "%s is %s\n", cmd, execPath)
 }
 
 type Executor struct {
-	writer     io.Writer
+	stdin  io.Reader
+	stdout io.Writer
+	stderr io.Writer
+
 	pathLooker func(string) (string, error)
 }
 
 func (ex Executor) Run(program string, args []string) {
-	// matches, err := ex.execGlobFS.Glob(program)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	pPath, err := ex.pathLooker(program)
+	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			fmt.Fprintf(os.Stdout, "%s: command not found\n", strings.TrimSuffix(program, "\n"))
 
-	// cmd := exec.LookPath()
+			return
+		}
+
+		panic(err)
+	}
+
+	process := exec.Command(pPath, args...)
+	process.Stdin = ex.stdin
+	process.Stdout = ex.stdout
+	process.Stderr = ex.stderr
+
+	err = process.Run()
+	if err != nil {
+		panic(err)
+	}
+
 }
