@@ -110,5 +110,5 @@ func (tc TypeCmd) Run(args []string) {
 		return
 	}
 
-	fmt.Fprintf(tc.writer, "%s: not found \n", args[0])
+	fmt.Fprintf(tc.writer, "%s: not found\n", args[0])
 }
