@@ -13,6 +13,7 @@ import (
 func main() {
 	commands := map[string]Cmd{
 		"exit": ExitCmd{},
+		"echo": EchoCmd{writer: os.Stdout},
 	}
 
 	for {
@@ -58,4 +59,17 @@ func (ec ExitCmd) Run(args []string) {
 	}
 
 	os.Exit(exitCode)
+}
+
+type EchoCmd struct {
+	writer io.Writer
+}
+
+func (ec EchoCmd) Run(args []string) {
+	if len(args) == 0 {
+		fmt.Fprint(ec.writer, "\n")
+		return
+	}
+
+	fmt.Fprintf(ec.writer, "%s\n", strings.Join(args, ""))
 }
