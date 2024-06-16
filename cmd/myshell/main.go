@@ -41,6 +41,7 @@ func main() {
 			wdGetter: os.Getwd,
 		},
 		"cd": CdCmd{
+			stdout:        os.Stdout,
 			dirChanger:    os.Chdir,
 			homeDirGetter: func() string { return os.Getenv("HOME") },
 		},

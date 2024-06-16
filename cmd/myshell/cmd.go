@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -109,6 +110,7 @@ func (pc PwdCmd) Run(args []string) error {
 }
 
 type CdCmd struct {
+	stdout        io.Writer
 	dirChanger    func(string) error
 	homeDirGetter func() string
 }
@@ -121,7 +123,12 @@ func (cc CdCmd) Run(args []string) error {
 	newDir := strings.ReplaceAll(args[0], "~", cc.homeDirGetter())
 	err := cc.dirChanger(newDir)
 	if err != nil {
-		panic(err)
+		if errors.Is(err, fs.ErrNotExist) {
+			fmt.Fprintf(cc.stdout, "cd: %s: No such file or directory\n", newDir)
+			return nil
+		}
+
+		return err
 	}
 
 	return nil
