@@ -1,36 +1,23 @@
 [![progress-banner](https://backend.codecrafters.io/progress/shell/e81cae88-a016-4403-a5de-f38016d80f2a)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
-This is a starting point for Go solutions to the
-["Build Your Own Shell" Challenge](https://app.codecrafters.io/courses/shell/overview).
+This is a Go solution to the ["Build Your Own Shell" Challenge](https://app.codecrafters.io/courses/shell/overview).
 
-In this challenge, you'll build your own POSIX compliant shell that's capable of
-interpreting shell commands, running external programs and builtin commands like
-cd, pwd, echo and more. Along the way, you'll learn about shell command parsing,
-REPLs, builtin commands, and more.
+## Learnings
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+- Instead of using globals, consider passing functions / structs around.
 
-# Passing the first stage
+  - You can go far with this approach, especially when it comes to testing.
 
-The entry point for your `shell` implementation is in `cmd/myshell/main.go`.
-Study and uncomment the relevant code, and push your changes to pass the first
-stage:
+- The `type` command was tricky.
 
-```sh
-git add .
-git commit -m "pass 1st stage" # any msg
-git push origin master
-```
+  - How do I pass the information about available builtins to it?
 
-Time to move on to the next stage!
+    - I've opted for a function `builtinFinder` but I'm unsure if this is a good approach.
 
-# Stage 2 & beyond
+- How do you make `exec.Command` testable?
 
-Note: This section is for stages 2 and beyond.
+  - There [are articles like these](https://abhinavg.net/2022/05/15/hijack-testmain/), but I'm not sure if this is the path I want to take.
 
-1. Ensure you have `go (1.19)` installed locally
-1. Run `./your_shell.sh` to run your program, which is implemented in
-   `cmd/myshell/main.go`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+  - Ideally, I would be using an _interface_ for executing commands. Then I could use a "test" implementation in tests.
+
+    - I'm more aligned with [this approach](https://blog.sergeyev.info/golang-shell-commands/) or variations of it.
