@@ -39,6 +39,10 @@ func main() {
 			stdout:   os.Stdout,
 			wdGetter: os.Getwd,
 		},
+		"cd": CdCmd{
+			dirChanger:    os.Chdir,
+			homeDirGetter: func() string { return os.Getenv("HOME") },
+		},
 	}
 
 	executor := Executor{

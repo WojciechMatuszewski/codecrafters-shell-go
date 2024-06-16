@@ -107,3 +107,22 @@ func (pc PwdCmd) Run(args []string) error {
 
 	return nil
 }
+
+type CdCmd struct {
+	dirChanger    func(string) error
+	homeDirGetter func() string
+}
+
+func (cc CdCmd) Run(args []string) error {
+	if len(args) != 1 {
+		return ErrInvalidParametersLength
+	}
+
+	newDir := strings.ReplaceAll(args[0], "~", cc.homeDirGetter())
+	err := cc.dirChanger(newDir)
+	if err != nil {
+		panic(err)
+	}
+
+	return nil
+}
