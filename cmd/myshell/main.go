@@ -26,13 +26,14 @@ func main() {
 			builtinFinder: func(s string) bool {
 				switch {
 				case s == "exit":
+					return true
 				case s == "echo":
+					return true
 				case s == "type":
 					return true
 				default:
 					return false
 				}
-				return false
 			},
 		},
 		"pwd": PwdCmd{
